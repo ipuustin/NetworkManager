@@ -62,6 +62,10 @@ NM_GOBJECT_PROPERTIES_DEFINE (NMPolicy,
 );
 
 typedef struct {
+	NMDevice *device;
+} DeviceData;
+
+typedef struct {
 	NMManager *manager;
 	NMNetns *netns;
 	NMFirewallManager *firewall_manager;
@@ -2012,20 +2016,25 @@ device_recheck_auto_activate (NMDevice *device, gpointer user_data)
 	schedule_activate_check (self, device);
 }
 
-static void
-devices_list_unregister (NMPolicy *self, NMDevice *device)
-{
-	NMPolicyPrivate *priv = NM_POLICY_GET_PRIVATE (self);
-
-	g_signal_handlers_disconnect_by_data ((GObject *) device, priv);
-}
+/*****************************************************************************/
 
 static void
-devices_list_register (NMPolicy *self, NMDevice *device)
+_devices_add (NMPolicy *self,
+              NMDevice *device)
 {
-	NMPolicyPrivate *priv = NM_POLICY_GET_PRIVATE (self);
+	NMPolicyPrivate *priv;
+	DeviceData *device_data;
 
-	/* Connect state-changed with _after, so that the handler is invoked after other handlers. */
+	g_return_if_fail (NM_IS_POLICY (self));
+
+	priv = NM_POLICY_GET_PRIVATE (self);
+
+	device_data = g_slice_new0 (DeviceData);
+	device_data->device = device;
+
+	if (!nm_g_hash_table_insert (priv->devices, device, device_data))
+		g_return_if_reached ();
+
 	g_signal_connect_after (device, NM_DEVICE_STATE_CHANGED,          (GCallback) device_state_changed, priv);
 	g_signal_connect       (device, NM_DEVICE_IP4_CONFIG_CHANGED,     (GCallback) device_ip4_config_changed, priv);
 	g_signal_connect       (device, NM_DEVICE_IP6_CONFIG_CHANGED,     (GCallback) device_ip6_config_changed, priv);
@@ -2036,19 +2045,37 @@ devices_list_register (NMPolicy *self, NMDevice *device)
 }
 
 static void
+_devices_remove (NMPolicy *self,
+                 DeviceData *device_data,
+                 GHashTableIter *iter)
+{
+	NMPolicyPrivate *priv;
+	NMDevice *device;
+
+	if (!device_data)
+		return;
+
+	priv = NM_POLICY_GET_PRIVATE (self);
+
+	device = device_data->device;
+
+	g_signal_handlers_disconnect_by_data (device, priv);
+
+	if (iter)
+		g_hash_table_iter_remove (iter);
+	else
+		g_hash_table_remove (priv->devices, device);
+
+	g_slice_free (DeviceData, device_data);
+}
+
+static void
 device_added (NMManager *manager, NMDevice *device, gpointer user_data)
 {
 	NMPolicyPrivate *priv = user_data;
 	NMPolicy *self = _PRIV_TO_SELF (priv);
 
-	g_return_if_fail (NM_IS_POLICY (self));
-
-	priv = NM_POLICY_GET_PRIVATE (self);
-
-	if (!nm_g_hash_table_add (priv->devices, device))
-		g_return_if_reached ();
-
-	devices_list_register (self, device);
+	_devices_add (self, device);
 }
 
 static void
@@ -2064,8 +2091,9 @@ device_removed (NMManager *manager, NMDevice *device, gpointer user_data)
 	/* Clear any idle callbacks for this device */
 	clear_pending_activate_check (self, device);
 
-	if (g_hash_table_remove (priv->devices, device))
-		devices_list_unregister (self, device);
+	_devices_remove (self,
+	                 g_hash_table_lookup (priv->devices, device),
+	                 NULL);
 
 	/* Don't update routing and DNS here as we've already handled that
 	 * for devices that need it when the device's state changed to UNMANAGED.
@@ -2601,7 +2629,7 @@ dispose (GObject *object)
 	NMPolicyPrivate *priv = NM_POLICY_GET_PRIVATE (self);
 	const GSList *connections;
 	GHashTableIter h_iter;
-	NMDevice *device;
+	DeviceData *device_data;
 
 	nm_clear_g_cancellable (&priv->lookup.cancellable);
 	g_clear_object (&priv->lookup.addr);
@@ -2630,10 +2658,8 @@ dispose (GObject *object)
 	}
 
 	g_hash_table_iter_init (&h_iter, priv->devices);
-	if (g_hash_table_iter_next (&h_iter, (gpointer *) &device, NULL)) {
-		g_hash_table_iter_remove (&h_iter);
-		devices_list_unregister (self, device);
-	}
+	if (g_hash_table_iter_next (&h_iter, NULL, (gpointer *) &device_data))
+		_devices_remove (self, device_data, &h_iter);
 
 	/* The manager should have disposed of ActiveConnections already, which
 	 * will have called active_connection_removed() and thus we don't need
