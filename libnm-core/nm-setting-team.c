@@ -635,8 +635,11 @@ set_property (GObject *object, guint prop_id,
 	case PROP_RUNNER_HWPOLICY:
 		g_free (priv->runner_hwpolicy);
 		priv->runner_hwpolicy = g_value_dup_string (value);
-		if (priv->runner_hwpolicy && !nm_streq (priv->runner_hwpolicy, "same_all"))
+		if (   priv->runner_hwpolicy
+		    && !nm_streq (priv->runner_hwpolicy,
+		                  NM_SETTING_TEAM_RUNNER_HWPOLICY_SAMEALL)) {
 			align_value = value;
+		}
 		align_config = TRUE;
 		break;
 	case PROP_RUNNER_TXHASH:
