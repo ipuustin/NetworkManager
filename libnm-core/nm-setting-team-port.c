@@ -54,6 +54,7 @@ typedef struct {
 	int lacp_key;
 } NMSettingTeamPortPrivate;
 
+/* Keep aligned with _prop_to_keys[] */
 enum {
 	PROP_0,
 	PROP_CONFIG,
@@ -64,6 +65,18 @@ enum {
 	PROP_LACP_KEY,
 	LAST_PROP
 };
+
+/* Keep aligned with team-port properties enum */
+static _nm_utils_team_property_keys _prop_to_keys[LAST_PROP] = {
+	{ NULL, NULL, NULL },
+	{ NULL, NULL, NULL },
+	{ "queue_id", NULL, NULL },
+	{ "prio", NULL, NULL },
+	{ "sticky", NULL, NULL },
+	{ "lacp_prio", NULL, NULL },
+	{ "lacp_key", NULL, NULL },
+};
+
 
 /**
  * nm_setting_team_port_new:
@@ -258,31 +271,66 @@ set_property (GObject *object, guint prop_id,
               const GValue *value, GParamSpec *pspec)
 {
 	NMSettingTeamPortPrivate *priv = NM_SETTING_TEAM_PORT_GET_PRIVATE (object);
+	const GValue *align_value = NULL;
+	gboolean align_config = FALSE;
 
 	switch (prop_id) {
 	case PROP_CONFIG:
 		g_free (priv->config);
 		priv->config = g_value_dup_string (value);
+		JSON_EXTRACT_VAL (priv->queue_id, priv->config, "queue_id", NULL, NULL);
+		JSON_EXTRACT_VAL (priv->prio, priv->config, "prio", NULL, NULL);
+		JSON_EXTRACT_VAL (priv->sticky, priv->config, "sticky", NULL, NULL);
+		JSON_EXTRACT_VAL (priv->lacp_prio, priv->config, "lacp_prio", NULL, NULL);
+		JSON_EXTRACT_VAL (priv->lacp_key, priv->config, "lacp_key", NULL, NULL);
 		break;
 	case PROP_QUEUE_ID:
+		if (priv->queue_id == g_value_get_int (value))
+			break;
 		priv->queue_id = g_value_get_int (value);
+		if (priv->queue_id > -1)
+			align_value = value;
+		align_config = TRUE;
 		break;
 	case PROP_PRIO:
+		if (priv->prio == g_value_get_int (value))
+			break;
 		priv->prio = g_value_get_int (value);
+		if (priv->prio)
+			align_value = value;
+		align_config = TRUE;
 		break;
 	case PROP_STICKY:
+		if (priv->sticky == g_value_get_boolean (value))
+			break;
 		priv->sticky = g_value_get_boolean (value);
+		if (priv->sticky)
+			align_value = value;
+		align_config = TRUE;
 		break;
 	case PROP_LACP_PRIO:
+		if (priv->lacp_prio == g_value_get_int (value))
+			break;
 		priv->lacp_prio = g_value_get_int (value);
+		/* from libteam sources: lacp_prio default value is 0xff */
+		if (priv->lacp_prio != 255)
+			align_value = value;
+		align_config = TRUE;
 		break;
 	case PROP_LACP_KEY:
+		if (priv->lacp_key == g_value_get_int (value))
+			break;
 		priv->lacp_key = g_value_get_int (value);
+		if (priv->lacp_key > 0)
+			align_value = value;
+		align_config = TRUE;
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
 	}
+	if (align_config)
+		VAL_TO_JSON (priv->config, _prop_to_keys[prop_id], align_value);
 }
 
 static void
