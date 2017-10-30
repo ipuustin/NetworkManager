@@ -3658,6 +3658,19 @@ _set_fcn_team_runner (ARGS_SET_FCN)
 	return check_and_set_string (setting, property_info->property_name, value, team_valid_runners, error);
 }
 
+static const char *team_valid_runner_hwpolicies[] = {
+	NM_SETTING_TEAM_RUNNER_HWPOLICY_SAMEALL,
+	NM_SETTING_TEAM_RUNNER_HWPOLICY_BYACTIVE,
+	NM_SETTING_TEAM_RUNNER_HWPOLICY_ONLYACTIVE,
+	NULL
+};
+
+static gboolean
+_set_fcn_team_runner_hwpolicy (ARGS_SET_FCN)
+{
+	return check_and_set_string (setting, property_info->property_name, value, team_valid_runner_hwpolicies, error);
+}
+
 static gboolean
 _is_valid_team_runner_txhash_element (const char *txhash_element)
 {
@@ -6024,7 +6037,13 @@ static const NMMetaPropertyInfo *const property_infos_TEAM[] = {
 	PROPERTY_INFO_WITH_DESC (NM_SETTING_TEAM_RUNNER_HWPOLICY,
 		.is_cli_option =                TRUE,
 		.property_alias =               "hwaddr_policy",
-		.property_type =                &_pt_gobject_string,
+		.property_type = DEFINE_PROPERTY_TYPE (
+			.get_fcn =                  _get_fcn_gobject,
+			.set_fcn =                  _set_fcn_team_runner_hwpolicy,
+		),
+		.property_typ_data = DEFINE_PROPERTY_TYP_DATA (
+			.values_static =            team_valid_runner_hwpolicies,
+		),
 	),
 	PROPERTY_INFO_WITH_DESC (NM_SETTING_TEAM_RUNNER_TXHASH,
 		.is_cli_option =                TRUE,
