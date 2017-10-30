@@ -82,27 +82,24 @@ enum {
 };
 
 /* Keep aligned with team properties enum */
-static struct {
-	const char *key;
-	const char *key2;
-	const char *key3;
-} _prop_to_keys [LAST_PROP] = { { NULL, NULL, NULL },                    /* PROP_0 */
-                                { NULL, NULL, NULL },                    /* PROP_CONFIG */
-                                { "notify_peers", "count", NULL },       /* PROP_NOTIFYPEERS_COUNT */
-                                { "notify_peers", "interval", NULL },    /* PROP_NOTIFYPEERS_INTERVAL */
-                                { "mcast_rejoin", "count", NULL },       /* PROP_MCASTREJOIN_COUNT */
-                                { "mcast_rejoin", "interval", NULL },    /* PROP_MCASTREJOIN_INTERVAL */
-                                { "runner", "name", NULL },              /* PROP_RUNNER */
-                                { "runner", "hwaddr_policy", NULL },     /* PROP_RUNNER_HWPOLICY */
-                                { "runner", "tx_hash", NULL },           /* PROP_RUNNER_TXHASH */
-                                { "runner", "tx_balancer", "name" },     /* PROP_RUNNER_TXBALANCER */
-                                { "runner", "tx_balancer", "interval" }, /* PROP_RUNNER_TXBALANCER_INTERVAL */
-                                { "runner", "active", NULL },            /* PROP_RUNNER_ACTIVE */
-                                { "runner", "fastrate", NULL },          /* PROP_RUNNER_FASTRATE */
-                                { "runner", "sys_prio", NULL },          /* PROP_RUNNER_SYSPRIO */
-                                { "runner", "min_ports", NULL },         /* PROP_RUNNER_MINPORTS */
-                                { "runner", "agg_select_policy", NULL }, /* PROP_RUNNER_AGGSELECTPOLICY */
-                              };
+static _nm_utils_team_property_keys _prop_to_keys[LAST_PROP] = {
+	{ NULL, NULL, NULL },                    /* PROP_0 */
+	{ NULL, NULL, NULL },                    /* PROP_CONFIG */
+	{ "notify_peers", "count", NULL },       /* PROP_NOTIFYPEERS_COUNT */
+	{ "notify_peers", "interval", NULL },    /* PROP_NOTIFYPEERS_INTERVAL */
+	{ "mcast_rejoin", "count", NULL },       /* PROP_MCASTREJOIN_COUNT */
+	{ "mcast_rejoin", "interval", NULL },    /* PROP_MCASTREJOIN_INTERVAL */
+	{ "runner", "name", NULL },              /* PROP_RUNNER */
+	{ "runner", "hwaddr_policy", NULL },     /* PROP_RUNNER_HWPOLICY */
+	{ "runner", "tx_hash", NULL },           /* PROP_RUNNER_TXHASH */
+	{ "runner", "tx_balancer", "name" },     /* PROP_RUNNER_TXBALANCER */
+	{ "runner", "tx_balancer", "interval" }, /* PROP_RUNNER_TXBALANCER_INTERVAL */
+	{ "runner", "active", NULL },            /* PROP_RUNNER_ACTIVE */
+	{ "runner", "fastrate", NULL },          /* PROP_RUNNER_FASTRATE */
+	{ "runner", "sys_prio", NULL },          /* PROP_RUNNER_SYSPRIO */
+	{ "runner", "min_ports", NULL },         /* PROP_RUNNER_MINPORTS */
+	{ "runner", "agg_select_policy", NULL }, /* PROP_RUNNER_AGGSELECTPOLICY */
+};
 
 /**
  * nm_setting_team_new:
@@ -510,47 +507,6 @@ finalize (GObject *object)
 }
 
 
-#define JSON_EXTRACT_VAL(var, conf, key, key2, key3) \
-	G_STMT_START { \
-		gs_free GValue *t_value = NULL; \
-		\
-		t_value = _nm_utils_team_config_get (conf, key, key2, key3, FALSE); \
-		if (!t_value) \
-			var = 0; \
-		else if (G_VALUE_HOLDS_INT (t_value)) \
-			var = g_value_get_int (t_value); \
-		else if (G_VALUE_HOLDS_BOOLEAN (t_value)) \
-			var = g_value_get_boolean (t_value); \
-	} G_STMT_END
-#define JSON_EXTRACT_STRING(var, conf, key, key2, key3) \
-	G_STMT_START { \
-		gs_free GValue *t_value = NULL; \
-		\
-		g_free (var); \
-		t_value = _nm_utils_team_config_get (conf, key, key2, key3, FALSE); \
-		if (!t_value) \
-			var = NULL; \
-		else \
-			var = g_value_dup_string (t_value); \
-	} G_STMT_END
-#define JSON_EXTRACT_STRV(var, conf, key, key2, key3, func_add) \
-	G_STMT_START { \
-		gs_free GValue *t_value = NULL; \
-		char **strv; \
-		guint i; \
-		\
-		if (var) { \
-			g_ptr_array_unref (var); \
-			var = NULL; \
-		} \
-		t_value = _nm_utils_team_config_get (conf, key, key2, key3, FALSE); \
-		if (t_value) { \
-			strv = g_value_get_boxed (t_value); \
-			for (i = 0; strv[i]; i++) \
-				func_add (setting, strv[i]); \
-		} \
-	} G_STMT_END
-
 static void
 _align_team_properties (NMSettingTeam *setting)
 {
@@ -573,10 +529,6 @@ _align_team_properties (NMSettingTeam *setting)
 	                   nm_setting_team_add_runner_txhash);
 }
 
-#define VAL_TO_JSON(conf, keys, val) \
-	G_STMT_START { \
-		_nm_utils_team_config_set (&conf, keys.key, keys.key2, keys.key3, val); \
-	} G_STMT_END
 static void
 set_property (GObject *object, guint prop_id,
               const GValue *value, GParamSpec *pspec)

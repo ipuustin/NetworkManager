@@ -442,6 +442,58 @@ gboolean _nm_utils_team_config_set (char **conf,
                                     const char *key3,
                                     const GValue *value);
 
+typedef struct {
+	const char *key;
+	const char *key2;
+	const char *key3;
+} _nm_utils_team_property_keys;
+
+#define JSON_EXTRACT_VAL(var, conf, key, key2, key3) \
+	G_STMT_START { \
+		gs_free GValue *t_value = NULL; \
+		\
+		t_value = _nm_utils_team_config_get (conf, key, key2, key3, FALSE); \
+		if (!t_value) \
+			var = 0; \
+		else if (G_VALUE_HOLDS_INT (t_value)) \
+			var = g_value_get_int (t_value); \
+		else if (G_VALUE_HOLDS_BOOLEAN (t_value)) \
+			var = g_value_get_boolean (t_value); \
+	} G_STMT_END
+#define JSON_EXTRACT_STRING(var, conf, key, key2, key3) \
+	G_STMT_START { \
+		gs_free GValue *t_value = NULL; \
+		\
+		g_free (var); \
+		t_value = _nm_utils_team_config_get (conf, key, key2, key3, FALSE); \
+		if (!t_value) \
+			var = NULL; \
+		else \
+			var = g_value_dup_string (t_value); \
+	} G_STMT_END
+#define JSON_EXTRACT_STRV(var, conf, key, key2, key3, func_add) \
+	G_STMT_START { \
+		gs_free GValue *t_value = NULL; \
+		char **strv; \
+		guint i; \
+		\
+		if (var) { \
+			g_ptr_array_unref (var); \
+			var = NULL; \
+		} \
+		t_value = _nm_utils_team_config_get (conf, key, key2, key3, FALSE); \
+		if (t_value) { \
+			strv = g_value_get_boxed (t_value); \
+			for (i = 0; strv[i]; i++) \
+				func_add (setting, strv[i]); \
+		} \
+	} G_STMT_END
+
+#define VAL_TO_JSON(conf, keys, val) \
+	G_STMT_START { \
+		_nm_utils_team_config_set (&conf, keys.key, keys.key2, keys.key3, val); \
+	} G_STMT_END
+
 /*****************************************************************************/
 
 static inline int
