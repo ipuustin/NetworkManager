@@ -4576,6 +4576,7 @@ _nm_utils_team_config_set (char **conf,
 	json_error_t jerror;
 	gboolean updated = FALSE;
 	char **strv;
+	const char *iter_key = key;
 	int i;
 
 	json = json_loads (*conf?: "{}", JSON_REJECT_DUPLICATES, &jerror);
@@ -4584,23 +4585,31 @@ _nm_utils_team_config_set (char **conf,
 
 	/* no new value? delete element */
 	if (!value) {
-		const char *remove_key = key2;
+		json_element = json;
+		json_link = NULL;
 
-		json_link = json;
-		json_element = json_object_get (json, key);
-		if (!json_element)
-			goto done;
+		if (key2) {
+			json_link = json;
+			json_element = json_object_get (json, key);
+			if (!json_element)
+				goto done;
+			iter_key = key2;
+		}
 		if (key3) {
 			json_link = json_element;
 			json_element = json_object_get (json_element, key2);
 			if (!json_element)
 				goto done;
-			remove_key = key3;
+			iter_key = key3;
 		}
-		if (json_object_del (json_element, remove_key) != 0)
+		if (json_object_del (json_element, iter_key) != 0)
 			goto done;
 
 		updated = TRUE;
+
+		/* 1st level key only */
+		if (!json_link)
+			goto done;
 
 		if (json_object_size (json_element) == 0)
 			json_object_del (json_link, (key3 ? key2 : key));
@@ -4633,30 +4642,30 @@ _nm_utils_team_config_set (char **conf,
 		goto done;
 	}
 
-	json_element = json_object_get (json, key);
-	if (!json_element) {
-		if (key3) {
-			json_link = json_object ();
-			json_object_set_new (json_link, key3, json_value);
-		} else
-			json_link = json_value;
-		json_element = json_object ();
-		json_object_set_new (json_element, key2, json_link);
-		json_object_set_new (json, key, json_element);
-		goto done;
-	}
+	/* Simplest case: first level key only */
+	json_element = json;
+	json_link = NULL;
 
-	if (key3) {
-		json_link = json_object_get (json_element, key2);
-		if (!json_link) {
-			json_link = json_object ();
-			json_object_set_new (json_element, key2, json_link);
+	if (key2) {
+		json_link = json;
+		json_element = json_object_get (json, iter_key);
+		if (!json_element) {
+			json_element = json_object ();
+			json_object_set_new (json_link, iter_key, json_element);
 		}
-		json_object_set_new (json_link, key3, json_value);
-		goto done;
+		iter_key = key2;
+	}
+	if (key3) {
+		json_link = json_element;
+		json_element = json_object_get (json_link, iter_key);
+		if (!json_element) {
+			json_element = json_object ();
+			json_object_set_new (json_link, iter_key, json_element);
+		}
+		iter_key = key3;
 	}
 
-	json_object_set_new (json_element, key2, json_value);
+	json_object_set_new (json_element, iter_key, json_value);
 
 done:
 	if (updated) {
