@@ -4487,6 +4487,10 @@ _nm_utils_team_config_get (const char *conf,
 
 	json = json_loads (conf ?: "{}", JSON_REJECT_DUPLICATES, &jerror);
 
+	/* Invalid json in conf */
+	if (!json)
+		return NULL;
+
 	/* Some properties are added by teamd when missing from the initial
 	 * configuration.  Add them with the default value if necessary, depending
 	 * on the configuration type.
